@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Animalese Synth Clone</title>
+  <title>Animalese-Style Gibberish</title>
   <style>
     body {
       font-family: sans-serif;
@@ -10,35 +10,50 @@
       margin: 40px auto;
       line-height: 1.5;
     }
-    textarea {
+    textarea, input {
       width: 100%;
       box-sizing: border-box;
       margin-bottom: 10px;
+      padding: 6px;
+      font-size: 1em;
     }
     label {
       display: block;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
     }
     button {
       margin-right: 10px;
       padding: 6px 12px;
+      font-size: 1em;
+    }
+    #seed-slider {
+      width: 100%;
+      margin-top: 6px;
     }
   </style>
 </head>
 <body>
-  <h2>Animalese-style Gibberish Generator</h2>
+  <h2>Animalese-Style Gibberish</h2>
+
   <textarea id="text" rows="4" placeholder="Type something…">Hello! World</textarea>
 
   <label>
     <input type="checkbox" id="shorten" />
-    Shorten words to first+last letter
+    Shorten words to (first + last letter)
   </label>
 
-  <label>
-    Pitch: 
-    <input id="pitch" type="range" min="0.5" max="2.0" step="0.1" value="1" />
-    <span id="pitchVal">1.0</span>
-  </label>
+  <label for="seed-input">Seed (integer):</label>
+  <input type="text" id="seed-input" placeholder="Enter an integer seed" />
+
+  <label for="seed-slider">Seed Slider:</label>
+  <input
+    type="range"
+    id="seed-slider"
+    min="0"
+    max="1000000"
+    step="1"
+    value="0"
+  />
 
   <div style="margin-top: 15px;">
     <button id="preview" disabled>Preview</button>
