@@ -1,21 +1,4 @@
-/* 
- * RIFFWAVE.js v0.03 - Audio encoder for HTML5 <audio> elements.
- * Copyleft 2011 by Pedro Ladaria <pedro.ladaria at Gmail dot com>
- *
- * Public Domain
- *
- * Changelog:
- *
- * 0.01 - First release
- * 0.02 - New faster base64 encoding
- * 0.03 - Support for 16bit samples
- *
- * Notes:
- *
- * 8 bit data is unsigned: 0..255
- * 16 bit data is signed: −32,768..32,767
- *
- */
+
 
 var FastBase64 = {
 

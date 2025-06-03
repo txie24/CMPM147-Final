@@ -1,6 +1,3 @@
-// animalese.js
-// (C) 2014 Josh Simmons
-// http://github.com/acedio/animalese.js
 
 var Animalese = function(letters_file, onload) {
   this.Animalese = function(script, shorten, pitch) {
