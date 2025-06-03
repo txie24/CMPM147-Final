@@ -1,10 +1,6 @@
-// main.js
+// main.js - Animal Crossing Themed Animalese Generator
 
-// ---- tiny xxhash32 + mulberry32 PRNG helpers ----
-
-/**
- * A minimal xxhash32 implementation over UTF‑8 string → 32‑bit unsigned.
- */
+// ---- xxhash32 + mulberry32 PRNG helpers ----
 function xxhash32(str, seed = 0) {
   const encoder = new TextEncoder();
   const data = encoder.encode(str);
@@ -18,9 +14,6 @@ function xxhash32(str, seed = 0) {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-/**
- * A tiny 32‑bit integer → PRNG that returns numbers in [0,1).
- */
 function mulberry32(a) {
   return function () {
     let t = (a += 0x6d2b79f5);
@@ -30,24 +23,106 @@ function mulberry32(a) {
   };
 }
 
-// ---- AnimaleseSynth class (uses seed **and** pitch) ----
+// ---- Enhanced AnimaleseSynth for Animal Crossing feel ----
 class AnimaleseSynth {
   constructor(lettersUrl) {
     this.lettersUrl = lettersUrl;
     this.audioBuffer = null;
   }
 
-  // Load and decode the single WAV that has 26 consecutive “A→Z” letter samples.
   async loadLibrary() {
     if (this.audioBuffer) return;
-    const resp = await fetch(this.lettersUrl);
-    const arrayBuffer = await resp.arrayBuffer();
-    const ctx = new AudioContext();
-    this.audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    
+    try {
+      const resp = await fetch(this.lettersUrl);
+      const arrayBuffer = await resp.arrayBuffer();
+      const ctx = new AudioContext();
+      this.audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      ctx.close();
+    } catch (error) {
+      console.warn('Audio library not found, creating Animal Crossing style synthetic voices');
+      this.createAnimalCrossingSyntheticAudio();
+    }
+  }
+
+  // Create Animal Crossing style synthetic audio
+  createAnimalCrossingSyntheticAudio() {
+    const sampleRate = 44100;
+    const duration = 0.12; // Shorter, punchier sounds like AC
+    const frames = Math.floor(duration * sampleRate);
+    const totalFrames = frames * 26;
+    
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.audioBuffer = ctx.createBuffer(1, totalFrames, sampleRate);
+    const data = this.audioBuffer.getChannelData(0);
+    
+    // Generate Animal Crossing style sounds for each letter
+    for (let letter = 0; letter < 26; letter++) {
+      const startFrame = letter * frames;
+      
+      // Different character types based on letter
+      const baseFreq = this.getAnimalCrossingFrequency(letter);
+      const harmonic = this.getHarmonicPattern(letter);
+      
+      for (let i = 0; i < frames; i++) {
+        const t = i / sampleRate;
+        const envelope = this.getAnimalCrossingEnvelope(t, duration);
+        
+        // Create more complex, cute sounds
+        let sample = 0;
+        sample += Math.sin(2 * Math.PI * baseFreq * t) * 0.6;
+        sample += Math.sin(2 * Math.PI * baseFreq * harmonic * t) * 0.3;
+        sample += Math.sin(2 * Math.PI * baseFreq * 0.5 * t) * 0.1;
+        
+        // Add some character-specific modulation
+        const vibrato = 1 + 0.05 * Math.sin(2 * Math.PI * 6 * t);
+        sample *= vibrato;
+        
+        data[startFrame + i] = sample * envelope * 0.4;
+      }
+    }
+    
     ctx.close();
   }
 
-  // If “shorten” is checked, reduce each word to first+last letter; else return raw.
+  // Get frequency that matches Animal Crossing character types
+  getAnimalCrossingFrequency(letterIndex) {
+    // Different frequency ranges for different "character types"
+    const frequencies = [
+      380, 420, 350, 480, 390, 360, 440, 410, // A-H
+      450, 370, 460, 400, 430, 470, 340, 490, // I-P  
+      320, 500, 380, 420, 460, 350, 440, 390, // Q-X
+      480, 360 // Y-Z
+    ];
+    return frequencies[letterIndex] || 400;
+  }
+
+  // Get harmonic pattern for more interesting sounds
+  getHarmonicPattern(letterIndex) {
+    const patterns = [1.5, 2.0, 1.2, 1.8, 1.4, 1.6, 1.3, 1.7, 1.9, 1.1];
+    return patterns[letterIndex % patterns.length];
+  }
+
+  // Animal Crossing style envelope (quick attack, gentle decay)
+  getAnimalCrossingEnvelope(t, duration) {
+    const attackTime = 0.01;
+    const decayTime = duration * 0.3;
+    const sustainLevel = 0.6;
+    const releaseTime = duration * 0.7;
+    
+    if (t <= attackTime) {
+      return t / attackTime;
+    } else if (t <= attackTime + decayTime) {
+      const decayProgress = (t - attackTime) / decayTime;
+      return 1 - (1 - sustainLevel) * decayProgress;
+    } else if (t <= duration - releaseTime) {
+      return sustainLevel;
+    } else {
+      const releaseProgress = (t - (duration - releaseTime)) / releaseTime;
+      return sustainLevel * (1 - releaseProgress);
+    }
+  }
+
   _processScript(text, shorten) {
     if (!shorten) return text;
     return text
@@ -60,54 +135,45 @@ class AnimaleseSynth {
       .join("");
   }
 
-  /**
-   * Synthesize a “seeded” Animalese clip.
-   * Same seed → all parameters are the same, the generated WAV bit level is the same.
-   * pitch ∈ [-12, +12] Chromatic offset, 0 means original.
-   *
-   * @param {string} text
-   * @param {{shorten: boolean, seed: string|number, pitch: number}} opts
-   * @returns {Promise<Blob>} a 16‑bit PCM WAV Blob
-   */
-  async synthesize(
-    text,
-    { shorten = false, seed = "", pitch = 0 } = {}
-  ) {
+  async synthesize(text, { shorten = false, seed = "", pitch = 0 } = {}) {
     await this.loadLibrary();
     const raw = this._processScript(text, shorten).toUpperCase();
     const L = raw.length;
 
-    // Each letter‑sample in the library is exactly (totalDuration / 26) seconds long:
-    const libraryDuration = this.audioBuffer.duration; // e.g. ~26 × 0.15 ≈ 3.9s
-    const libraryLetterDur = libraryDuration / 26; // ≈0.15s / letter
-    const outputLetterDur = libraryLetterDur / 2; // base x2 speed‑up
-    const sampleRate = this.audioBuffer.sampleRate; // e.g. 44100
+    if (L === 0) {
+      return this._createSilentWAV(0.1);
+    }
+
+    const libraryDuration = this.audioBuffer.duration;
+    const libraryLetterDur = libraryDuration / 26;
+    // Animal Crossing style: quicker pace
+    const outputLetterDur = libraryLetterDur / 2.5;
+    const sampleRate = this.audioBuffer.sampleRate;
     const libFrames = Math.floor(libraryLetterDur * sampleRate);
 
-    // ---- Derive a single PRNG from the seed string/int ----
-    // We stringify the seed, hash it to 32‑bit, then feed it to mulberry32.
-    // That PRNG’s first output (rnd()) is used to produce “jitter” in [0.8, 1.2].
+    // Enhanced seed-based character generation
     const seedStr = seed.toString();
     const hashVal = xxhash32(seedStr, 0);
     const rnd = mulberry32(hashVal);
-    const jitter = 0.5 + rnd(); // ∈ [0.5, 1.5]
+    
+    // Create character personality based on seed
+    const personality = this.generatePersonality(rnd);
+    const jitter = personality.speedVariation;
 
-    // ---- Convert pitch (semitones) → playback‑rate multiplier ----
-    const pitchFactor = Math.pow(2, pitch / 12);
+    // Enhanced pitch control with character personality
+    const basePitchFactor = Math.pow(2, pitch / 12);
+    const characterPitch = personality.basePitch;
+    const finalPitchFactor = basePitchFactor * characterPitch;
 
-    // Total length of final buffer in frames:
     const totalFrames = Math.ceil(L * outputLetterDur * sampleRate);
-
-    // Create an OfflineAudioContext to “compile” everything ahead of time:
     const offline = new OfflineAudioContext(1, totalFrames, sampleRate);
 
     let playTime = 0;
     for (let i = 0; i < L; i++) {
       const ch = raw[i];
       if (ch >= "A" && ch <= "Z") {
-        const letterIndex = ch.charCodeAt(0) - 65; // ‘A’→0, ‘B’→1, … ‘Z’→25
+        const letterIndex = ch.charCodeAt(0) - 65;
 
-        // Copy exactly libFrames samples from the library for this letter:
         const letterBuf = offline.createBuffer(1, libFrames, sampleRate);
         const tmp = new Float32Array(libFrames);
         this.audioBuffer.copyFromChannel(tmp, 0, letterIndex * libFrames);
@@ -116,24 +182,93 @@ class AnimaleseSynth {
         const src = offline.createBufferSource();
         src.buffer = letterBuf;
 
-        // Base speed is (2×) because we want to shrink ~0.15s→~0.075s.
-        // Then *= jitter so that seed actually warps pitch/speed.
-        // Finally *= pitchFactor to respect user slider.
-        src.playbackRate.value = 2 * jitter * pitchFactor;
+        // Apply character personality to playback
+        const baseRate = 2.5 * jitter * finalPitchFactor;
+        const letterVariation = 1 + (rnd() - 0.5) * personality.variation;
+        src.playbackRate.value = baseRate * letterVariation;
 
         src.connect(offline.destination);
         src.start(playTime);
       }
-      // If ch is not A–Z (e.g. space or punctuation), we just leave silence:
-      playTime += outputLetterDur;
+      
+      // Add slight pauses between words for more natural speech
+      if (ch === ' ') {
+        playTime += outputLetterDur * 0.5;
+      } else {
+        playTime += outputLetterDur * personality.pacing;
+      }
     }
 
-    // Render everything via OfflineAudioContext:
     const rendered = await offline.startRendering();
     return this._encodeWAV(rendered);
   }
 
-  // Convert a mono AudioBuffer into a standard 16‑bit PCM WAV Blob
+  // Generate Animal Crossing character personality from seed
+  generatePersonality(rnd) {
+    const personalities = [
+      { // Peppy
+        speedVariation: 0.8 + rnd() * 0.4,
+        basePitch: 1.1 + rnd() * 0.3,
+        variation: 0.15,
+        pacing: 0.9
+      },
+      { // Normal
+        speedVariation: 0.9 + rnd() * 0.2,
+        basePitch: 0.95 + rnd() * 0.1,
+        variation: 0.1,
+        pacing: 1.0
+      },
+      { // Lazy
+        speedVariation: 1.1 + rnd() * 0.3,
+        basePitch: 0.8 + rnd() * 0.2,
+        variation: 0.05,
+        pacing: 1.2
+      },
+      { // Snooty
+        speedVariation: 0.7 + rnd() * 0.2,
+        basePitch: 1.0 + rnd() * 0.15,
+        variation: 0.08,
+        pacing: 0.95
+      },
+      { // Cranky
+        speedVariation: 1.0 + rnd() * 0.2,
+        basePitch: 0.75 + rnd() * 0.15,
+        variation: 0.12,
+        pacing: 1.1
+      }
+    ];
+    
+    const personalityIndex = Math.floor(rnd() * personalities.length);
+    return personalities[personalityIndex];
+  }
+
+  _createSilentWAV(duration) {
+    const sampleRate = 44100;
+    const frames = Math.floor(duration * sampleRate);
+    const buffer = new ArrayBuffer(44 + frames * 2);
+    const view = new DataView(buffer);
+
+    this._writeString(view, 0, "RIFF");
+    view.setUint32(4, 36 + frames * 2, true);
+    this._writeString(view, 8, "WAVE");
+    this._writeString(view, 12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    this._writeString(view, 36, "data");
+    view.setUint32(40, frames * 2, true);
+
+    for (let i = 44; i < buffer.byteLength; i += 2) {
+      view.setInt16(i, 0, true);
+    }
+
+    return new Blob([view], { type: "audio/wav" });
+  }
+
   _encodeWAV(audioBuffer) {
     const numChannels = 1;
     const sampleRate = audioBuffer.sampleRate;
@@ -147,13 +282,13 @@ class AnimaleseSynth {
 
     // RIFF header
     this._writeString(view, 0, "RIFF");
-    view.setUint32(4, 36 + dataSize, true); // file size minus 8
+    view.setUint32(4, 36 + dataSize, true);
     this._writeString(view, 8, "WAVE");
 
     // fmt subchunk
     this._writeString(view, 12, "fmt ");
-    view.setUint32(16, 16, true); // PCM subchunk size
-    view.setUint16(20, 1, true); // audio format = 1 (PCM)
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
@@ -164,7 +299,7 @@ class AnimaleseSynth {
     this._writeString(view, 36, "data");
     view.setUint32(40, dataSize, true);
 
-    // PCM samples (16‑bit signed, little‑endian)
+    // PCM samples
     let offset = 44;
     for (let i = 0; i < numFrames; i++) {
       let s = Math.max(-1, Math.min(1, samples[i]));
@@ -183,7 +318,7 @@ class AnimaleseSynth {
   }
 }
 
-// ---- UI wiring: seed‑field + pitch‑slider binding ----
+// ---- UI Control with Animal Crossing Theme ----
 window.addEventListener("DOMContentLoaded", () => {
   const synth = new AnimaleseSynth("animalese.wav");
   const previewBtn = document.getElementById("preview");
@@ -192,22 +327,141 @@ window.addEventListener("DOMContentLoaded", () => {
   const shortenChk = document.getElementById("shorten");
   const seedInput = document.getElementById("seed-input");
   const pitchSlider = document.getElementById("pitch-slider");
+  const pitchDisplay = document.getElementById("pitchDisplay");
+  const randomSeedBtn = document.getElementById("randomSeed");
+  const livePreviewChk = document.getElementById("livePreview");
+  const liveIndicator = document.getElementById("liveIndicator");
 
-  // 1) If seed-input is empty on load, pick a large random integer (unbounded now)
-  if (!seedInput.value.trim()) {
-    seedInput.value = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER).toString();
+  let livePreviewTimeout = null;
+  let currentAudio = null;
+
+  // Animal Crossing character names for seeds
+  const characterNames = [
+    "Tom Nook", "Isabelle", "K.K. Slider", "Blathers", "Celeste", 
+    "Timmy", "Tommy", "Sable", "Mabel", "Kicks", "Redd", "Gulliver",
+    "Brewster", "Rover", "Pascal", "Zipper", "Jingle", "Pavé"
+  ];
+
+  function generateRandomSeed() {
+    const randomName = characterNames[Math.floor(Math.random() * characterNames.length)];
+    const randomNumber = Math.floor(Math.random() * 9999);
+    return `${randomName}-${randomNumber}`;
   }
 
-  // 2) Load the library once, then enable buttons.
+  // Initialize with Animal Crossing style seed
+  if (!seedInput.value.trim()) {
+    seedInput.value = generateRandomSeed();
+  }
+
+  // Enhanced pitch display with Animal Crossing character descriptions
+  function updatePitchDisplay() {
+    const pitchVal = parseInt(pitchSlider.value, 10);
+    let displayText = "Normal";
+    
+    if (pitchVal <= -15) {
+      displayText = "Deep & Gruff";
+    } else if (pitchVal <= -8) {
+      displayText = "Low & Calm";
+    } else if (pitchVal <= -3) {
+      displayText = "Slightly Deep";
+    } else if (pitchVal <= 3) {
+      displayText = "Normal";
+    } else if (pitchVal <= 8) {
+      displayText = "Slightly High";
+    } else if (pitchVal <= 15) {
+      displayText = "High & Peppy";
+    } else {
+      displayText = "Very High";
+    }
+    
+    pitchDisplay.textContent = displayText;
+  }
+
+  // Enhanced live preview with Animal Crossing feel
+  function triggerLivePreview() {
+    if (!livePreviewChk.checked) return;
+    
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    
+    clearTimeout(livePreviewTimeout);
+    livePreviewTimeout = setTimeout(async () => {
+      if (txt.value.trim()) {
+        try {
+          const seedVal = seedInput.value.trim();
+          const pitchVal = parseInt(pitchSlider.value, 10) || 0;
+          const blob = await synth.synthesize(txt.value, {
+            shorten: shortenChk.checked,
+            seed: seedVal,
+            pitch: pitchVal,
+          });
+          const url = URL.createObjectURL(blob);
+          currentAudio = new Audio(url);
+          currentAudio.volume = 0.6;
+          currentAudio.onended = () => {
+            URL.revokeObjectURL(url);
+            currentAudio = null;
+          };
+          currentAudio.play().catch(err => {
+            console.warn("Live preview play failed:", err);
+          });
+        } catch (err) {
+          console.error("Live preview error:", err);
+        }
+      }
+    }, 600); // Slightly longer delay for more deliberate feel
+  }
+
+  // Event Listeners
+  pitchSlider.addEventListener("input", () => {
+    updatePitchDisplay();
+    triggerLivePreview();
+  });
+
+  randomSeedBtn.addEventListener("click", () => {
+    seedInput.value = generateRandomSeed();
+    triggerLivePreview();
+    
+    // Add a little animation feedback
+    randomSeedBtn.style.transform = "scale(0.95)";
+    setTimeout(() => {
+      randomSeedBtn.style.transform = "scale(1)";
+    }, 150);
+  });
+
+  livePreviewChk.addEventListener("change", () => {
+    liveIndicator.style.display = livePreviewChk.checked ? "flex" : "none";
+    if (!livePreviewChk.checked && currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+  });
+
+  txt.addEventListener("input", triggerLivePreview);
+  shortenChk.addEventListener("change", triggerLivePreview);
+  seedInput.addEventListener("input", triggerLivePreview);
+
+  // Initialize
+  updatePitchDisplay();
+
+  // Load audio library with Animal Crossing style feedback
   synth.loadLibrary().then(() => {
+    previewBtn.disabled = false;
+    downloadBtn.disabled = false;
+    console.log("🏝️ Animal Crossing voice library ready!");
+  }).catch(err => {
+    console.error("Voice library error:", err);
     previewBtn.disabled = false;
     downloadBtn.disabled = false;
   });
 
-  // 3) “Preview” → render & play the WAV in an <audio> tag:
+  // Enhanced preview button with Animal Crossing feedback
   previewBtn.addEventListener("click", async () => {
     previewBtn.disabled = true;
-    previewBtn.textContent = "Rendering…";
+    previewBtn.innerHTML = '<span>🎵</span> Creating Voice...';
+    
     try {
       const seedVal = seedInput.value.trim();
       const pitchVal = parseInt(pitchSlider.value, 10) || 0;
@@ -218,23 +472,33 @@ window.addEventListener("DOMContentLoaded", () => {
       });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      
+      // Add visual feedback during playback
+      previewBtn.innerHTML = '<span>🔊</span> Playing...';
+      
       audio.onended = () => {
         URL.revokeObjectURL(url);
         previewBtn.disabled = false;
-        previewBtn.textContent = "Preview";
+        previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
       };
-      audio.play();
+      audio.onerror = () => {
+        console.error("Audio playback failed");
+        previewBtn.disabled = false;
+        previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
+      };
+      await audio.play();
     } catch (err) {
-      console.error(err);
+      console.error("Preview generation failed:", err);
       previewBtn.disabled = false;
-      previewBtn.textContent = "Preview";
+      previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
     }
   });
 
-  // 4) “Download” → render & force‑download the WAV:
+  // Enhanced download button
   downloadBtn.addEventListener("click", async () => {
     downloadBtn.disabled = true;
-    downloadBtn.textContent = "Rendering…";
+    downloadBtn.innerHTML = '<span>💾</span> Saving...';
+    
     try {
       const seedVal = seedInput.value.trim();
       const pitchVal = parseInt(pitchSlider.value, 10) || 0;
@@ -247,19 +511,40 @@ window.addEventListener("DOMContentLoaded", () => {
       const a = document.createElement("a");
       a.style.display = "none";
       a.href = url;
-      a.download = `animalese_seed_${seedVal}_pitch_${pitchVal}.wav`;
+      a.download = `animalese_${seedVal.replace(/[^a-zA-Z0-9]/g, '_')}_pitch_${pitchVal}.wav`;
       document.body.appendChild(a);
       a.click();
+      
+      // Success feedback
+      downloadBtn.innerHTML = '<span>✅</span> Saved!';
+      
       setTimeout(() => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         downloadBtn.disabled = false;
-        downloadBtn.textContent = "Download WAV";
-      }, 100);
+        downloadBtn.innerHTML = '<span>💾</span> Save Audio';
+      }, 1500);
     } catch (err) {
-      console.error(err);
+      console.error("Download generation failed:", err);
       downloadBtn.disabled = false;
-      downloadBtn.textContent = "Download WAV";
+      downloadBtn.innerHTML = '<span>💾</span> Save Audio';
+    }
+  });
+
+  // Add some fun Easter eggs
+  let konamiCode = [];
+  const konamiSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+  
+  document.addEventListener('keydown', (e) => {
+    konamiCode.push(e.code);
+    konamiCode = konamiCode.slice(-10);
+    
+    if (JSON.stringify(konamiCode) === JSON.stringify(konamiSequence)) {
+      txt.value = "Secret Animal Crossing message unlocked!";
+      seedInput.value = "K.K.-Slider-Secret";
+      pitchSlider.value = "5";
+      updatePitchDisplay();
+      triggerLivePreview();
     }
   });
 });

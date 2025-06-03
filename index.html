@@ -2,63 +2,88 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Animalese-Style Gibberish</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      max-width: 500px;
-      margin: 40px auto;
-      line-height: 1.5;
-    }
-    textarea, input {
-      width: 100%;
-      box-sizing: border-box;
-      margin-bottom: 10px;
-      padding: 6px;
-      font-size: 1em;
-    }
-    label {
-      display: block;
-      margin-bottom: 6px;
-    }
-    button {
-      margin-right: 10px;
-      padding: 6px 12px;
-      font-size: 1em;
-    }
-    #seed-slider {
-      width: 100%;
-      margin-top: 6px;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏝️ Animalese-Style Gibberish</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>Animalese-Style Gibberish</h2>
+  <div class="background-overlay"></div>
+  
+  <div class="container">
+    <div class="title-section">
+      <h1>🏝️ Animalese-Style Gibberish</h1>
+      <p class="subtitle">Create cute animal voices just like in Animal Crossing!</p>
+    </div>
+    
+    <div class="main-panel">
+      <div class="input-section">
+        <label for="text" class="ac-label">
+          <span class="label-icon">💬</span>
+          What would you like your villager to say?
+        </label>
+        <textarea id="text" rows="3" placeholder="Type your message here...">Hello! Welcome to my island!</textarea>
+      </div>
 
-  <textarea id="text" rows="4" placeholder="Type something…">Hello! World</textarea>
+      <div class="live-preview-panel" id="liveIndicator" style="display: none;">
+        <div class="preview-icon">🎵</div>
+        <span>Live Preview Active - Changes play automatically!</span>
+      </div>
 
-  <label>
-    <input type="checkbox" id="shorten" />
-    Shorten words to (first + last letter)
-  </label>
+      <div class="controls-section">
+        <div class="control-panel">
+          <div class="control-header">
+            <span class="control-icon">🎲</span>
+            <span class="control-title">Character Seed</span>
+          </div>
+          <input type="text" id="seed-input" placeholder="Enter character seed..." />
+          <button class="ac-button secondary" id="randomSeed">
+            <span>🔄</span> New Character
+          </button>
+        </div>
 
-  <label for="seed-input">Seed:</label>
-  <input type="text" id="seed-input" placeholder="Enter an integer seed" />
+        <div class="control-panel">
+          <div class="control-header">
+            <span class="control-icon">🎵</span>
+            <span class="control-title">Voice Pitch</span>
+          </div>
+          <div class="pitch-control">
+            <input type="range" id="pitch-slider" class="ac-slider" min="-24" max="24" step="1" value="0" />
+            <div class="pitch-labels">
+              <span>🐻 Deep</span>
+              <span id="pitchDisplay">Normal</span>
+              <span>🐰 High</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-  <label for="pitch-slider">Pitch:</label>
-  <input
-    type="range"
-    id="pitch-slider"
-    min="-12"
-    max="12"
-    step="1"
-    value="0"
-  />
+      <div class="options-section">
+        <div class="option-item">
+          <input type="checkbox" id="shorten" />
+          <label for="shorten" class="checkbox-label">
+            <span class="custom-checkbox"></span>
+            <span class="option-text">Quick Speech (abbreviate words)</span>
+          </label>
+        </div>
 
+        <div class="option-item">
+          <input type="checkbox" id="livePreview" />
+          <label for="livePreview" class="checkbox-label">
+            <span class="custom-checkbox"></span>
+            <span class="option-text">Live Preview Mode</span>
+          </label>
+        </div>
+      </div>
 
-  <div style="margin-top: 15px;">
-    <button id="preview" disabled>Preview</button>
-    <button id="download" disabled>Download WAV</button>
+      <div class="action-section">
+        <button class="ac-button primary" id="preview" disabled>
+          <span>🎵</span> Preview Voice
+        </button>
+        <button class="ac-button secondary" id="download" disabled>
+          <span>💾</span> Save Audio
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="main.js"></script>
