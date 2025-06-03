@@ -42,18 +42,19 @@
     Shorten words to (first + last letter)
   </label>
 
-  <label for="seed-input">Seed (integer):</label>
+  <label for="seed-input">Seed:</label>
   <input type="text" id="seed-input" placeholder="Enter an integer seed" />
 
-  <label for="seed-slider">Seed Slider:</label>
+  <label for="pitch-slider">Pitch:</label>
   <input
     type="range"
-    id="seed-slider"
-    min="0"
-    max="1000000"
+    id="pitch-slider"
+    min="-12"
+    max="12"
     step="1"
     value="0"
   />
+
 
   <div style="margin-top: 15px;">
     <button id="preview" disabled>Preview</button>

@@ -3,7 +3,7 @@
 // ---- tiny xxhash32 + mulberry32 PRNG helpers ----
 
 /**
- * A minimal xxhash32 implementation over UTF-8 string → 32-bit unsigned.
+ * A minimal xxhash32 implementation over UTF‑8 string → 32‑bit unsigned.
  */
 function xxhash32(str, seed = 0) {
   const encoder = new TextEncoder();
@@ -19,20 +19,18 @@ function xxhash32(str, seed = 0) {
 }
 
 /**
- * A tiny 32-bit integer → PRNG that returns numbers in [0,1).
+ * A tiny 32‑bit integer → PRNG that returns numbers in [0,1).
  */
 function mulberry32(a) {
-  return function() {
-    let t = (a += 0x6D2B79F5);
+  return function () {
+    let t = (a += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-
-// ---- AnimaleseSynth class (uses seed only) ----
-
+// ---- AnimaleseSynth class (uses seed **and** pitch) ----
 class AnimaleseSynth {
   constructor(lettersUrl) {
     this.lettersUrl = lettersUrl;
@@ -63,25 +61,39 @@ class AnimaleseSynth {
   }
 
   /**
-   * Synthesize a “seeded” Animalese clip.  The only parameter that affects pitch/speed
-   * is “seed” (an integer or string).  Changing it always yields a different output,
-   * but using the same seed twice yields exactly the same output.
+   * Synthesize a “seeded” Animalese clip.
+   * Same seed → all parameters are the same, the generated WAV bit level is the same.
+   * pitch ∈ [-12, +12] Chromatic offset, 0 means original.
    *
    * @param {string} text
-   * @param {{shorten: boolean, seed: string|number}} opts
-   * @returns {Promise<Blob>} a WAV Blob you can play or download
+   * @param {{shorten: boolean, seed: string|number, pitch: number}} opts
+   * @returns {Promise<Blob>} a 16‑bit PCM WAV Blob
    */
-  async synthesize(text, { shorten = false, seed = "" } = {}) {
+  async synthesize(
+    text,
+    { shorten = false, seed = "", pitch = 0 } = {}
+  ) {
     await this.loadLibrary();
     const raw = this._processScript(text, shorten).toUpperCase();
     const L = raw.length;
 
-    // Each letter‐sample in the library is exactly (totalDuration / 26) seconds long:
-    const libraryDuration = this.audioBuffer.duration;      // e.g. ~26 * 0.15 = ~3.9s
-    const libraryLetterDur = libraryDuration / 26;          // ~0.15s per letter
-    const outputLetterDur = libraryLetterDur / 2;           // we speed up by x2 base
-    const sampleRate = this.audioBuffer.sampleRate;         // e.g. 44100
+    // Each letter‑sample in the library is exactly (totalDuration / 26) seconds long:
+    const libraryDuration = this.audioBuffer.duration; // e.g. ~26 × 0.15 ≈ 3.9s
+    const libraryLetterDur = libraryDuration / 26; // ≈0.15s / letter
+    const outputLetterDur = libraryLetterDur / 2; // base x2 speed‑up
+    const sampleRate = this.audioBuffer.sampleRate; // e.g. 44100
     const libFrames = Math.floor(libraryLetterDur * sampleRate);
+
+    // ---- Derive a single PRNG from the seed string/int ----
+    // We stringify the seed, hash it to 32‑bit, then feed it to mulberry32.
+    // That PRNG’s first output (rnd()) is used to produce “jitter” in [0.8, 1.2].
+    const seedStr = seed.toString();
+    const hashVal = xxhash32(seedStr, 0);
+    const rnd = mulberry32(hashVal);
+    const jitter = 0.5 + rnd(); // ∈ [0.5, 1.5]
+
+    // ---- Convert pitch (semitones) → playback‑rate multiplier ----
+    const pitchFactor = Math.pow(2, pitch / 12);
 
     // Total length of final buffer in frames:
     const totalFrames = Math.ceil(L * outputLetterDur * sampleRate);
@@ -89,19 +101,11 @@ class AnimaleseSynth {
     // Create an OfflineAudioContext to “compile” everything ahead of time:
     const offline = new OfflineAudioContext(1, totalFrames, sampleRate);
 
-    // ---- Derive a single PRNG from the seed string/int ----
-    // We stringify the seed, hash it to 32-bit, then feed it to mulberry32.
-    // That PRNG’s first output (rnd()) is used to produce “jitter” in [0.8, 1.2].
-    const seedStr = seed.toString();
-    const hashVal = xxhash32(seedStr, 0);
-    const rnd = mulberry32(hashVal);
-    const jitter = 0.8 + rnd() * 0.4; // ∈ [0.8, 1.2]
-
     let playTime = 0;
     for (let i = 0; i < L; i++) {
       const ch = raw[i];
       if (ch >= "A" && ch <= "Z") {
-        const letterIndex = ch.charCodeAt(0) - 65; // ‘A’→0, ‘B’→1, …‘Z’→25
+        const letterIndex = ch.charCodeAt(0) - 65; // ‘A’→0, ‘B’→1, … ‘Z’→25
 
         // Copy exactly libFrames samples from the library for this letter:
         const letterBuf = offline.createBuffer(1, libFrames, sampleRate);
@@ -114,7 +118,8 @@ class AnimaleseSynth {
 
         // Base speed is (2×) because we want to shrink ~0.15s→~0.075s.
         // Then *= jitter so that seed actually warps pitch/speed.
-        src.playbackRate.value = 2 * jitter;
+        // Finally *= pitchFactor to respect user slider.
+        src.playbackRate.value = 2 * jitter * pitchFactor;
 
         src.connect(offline.destination);
         src.start(playTime);
@@ -123,12 +128,12 @@ class AnimaleseSynth {
       playTime += outputLetterDur;
     }
 
-    // Render everything now (OfflineAudioContext):
+    // Render everything via OfflineAudioContext:
     const rendered = await offline.startRendering();
     return this._encodeWAV(rendered);
   }
 
-  // Convert a mono AudioBuffer into a standard 16-bit PCM WAV Blob
+  // Convert a mono AudioBuffer into a standard 16‑bit PCM WAV Blob
   _encodeWAV(audioBuffer) {
     const numChannels = 1;
     const sampleRate = audioBuffer.sampleRate;
@@ -142,13 +147,13 @@ class AnimaleseSynth {
 
     // RIFF header
     this._writeString(view, 0, "RIFF");
-    view.setUint32(4, 36 + dataSize, true);          // file size minus 8
+    view.setUint32(4, 36 + dataSize, true); // file size minus 8
     this._writeString(view, 8, "WAVE");
 
     // fmt subchunk
     this._writeString(view, 12, "fmt ");
-    view.setUint32(16, 16, true);                     // PCM subchunk size
-    view.setUint16(20, 1, true);                      // audio format = 1 (PCM)
+    view.setUint32(16, 16, true); // PCM subchunk size
+    view.setUint16(20, 1, true); // audio format = 1 (PCM)
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
@@ -159,7 +164,7 @@ class AnimaleseSynth {
     this._writeString(view, 36, "data");
     view.setUint32(40, dataSize, true);
 
-    // PCM samples (16-bit signed, little-endian)
+    // PCM samples (16‑bit signed, little‑endian)
     let offset = 44;
     for (let i = 0; i < numFrames; i++) {
       let s = Math.max(-1, Math.min(1, samples[i]));
@@ -178,9 +183,7 @@ class AnimaleseSynth {
   }
 }
 
-
-// ---- UI wiring: seed-field ↔ seed-slider binding ----
-
+// ---- UI wiring: seed‑field + pitch‑slider binding ----
 window.addEventListener("DOMContentLoaded", () => {
   const synth = new AnimaleseSynth("animalese.wav");
   const previewBtn = document.getElementById("preview");
@@ -188,49 +191,30 @@ window.addEventListener("DOMContentLoaded", () => {
   const txt = document.getElementById("text");
   const shortenChk = document.getElementById("shorten");
   const seedInput = document.getElementById("seed-input");
-  const seedSlider = document.getElementById("seed-slider");
+  const pitchSlider = document.getElementById("pitch-slider");
 
-  // 1) If seed-input is empty on load, pick a random seed in [0,1e6).
+  // 1) If seed-input is empty on load, pick a large random integer (unbounded now)
   if (!seedInput.value.trim()) {
-    const rndInt = Math.floor(Math.random() * 1_000_000);
-    seedInput.value = rndInt.toString();
-    seedSlider.value = rndInt.toString();
+    seedInput.value = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER).toString();
   }
 
-  // 2) Whenever the user moves the slider, update the text field:
-  seedSlider.addEventListener("input", () => {
-    seedInput.value = seedSlider.value;
-  });
-
-  // 3) Whenever the user types a new integer into the seed field,
-  //    update the slider to match (if it's a valid int in range).
-  seedInput.addEventListener("change", () => {
-    const val = parseInt(seedInput.value.trim(), 10);
-    if (!isNaN(val) && val >= 0 && val <= 1_000_000) {
-      seedSlider.value = val.toString();
-    } else {
-      // If invalid, clamp to nearest valid and update both:
-      let clamped = isNaN(val) ? 0 : Math.min(Math.max(val, 0), 1_000_000);
-      seedInput.value = clamped.toString();
-      seedSlider.value = clamped.toString();
-    }
-  });
-
-  // 4) Load the library once. Then enable buttons.
+  // 2) Load the library once, then enable buttons.
   synth.loadLibrary().then(() => {
     previewBtn.disabled = false;
     downloadBtn.disabled = false;
   });
 
-  // 5) “Preview” → render & play the WAV in an <audio> tag:
+  // 3) “Preview” → render & play the WAV in an <audio> tag:
   previewBtn.addEventListener("click", async () => {
     previewBtn.disabled = true;
     previewBtn.textContent = "Rendering…";
     try {
       const seedVal = seedInput.value.trim();
+      const pitchVal = parseInt(pitchSlider.value, 10) || 0;
       const blob = await synth.synthesize(txt.value, {
         shorten: shortenChk.checked,
-        seed: seedVal
+        seed: seedVal,
+        pitch: pitchVal,
       });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -247,21 +231,23 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 6) “Download” → render & force-download the WAV:
+  // 4) “Download” → render & force‑download the WAV:
   downloadBtn.addEventListener("click", async () => {
     downloadBtn.disabled = true;
     downloadBtn.textContent = "Rendering…";
     try {
       const seedVal = seedInput.value.trim();
+      const pitchVal = parseInt(pitchSlider.value, 10) || 0;
       const blob = await synth.synthesize(txt.value, {
         shorten: shortenChk.checked,
-        seed: seedVal
+        seed: seedVal,
+        pitch: pitchVal,
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.style.display = "none";
       a.href = url;
-      a.download = `animalese_seed_${seedVal}.wav`;
+      a.download = `animalese_seed_${seedVal}_pitch_${pitchVal}.wav`;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
