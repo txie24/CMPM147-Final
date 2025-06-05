@@ -319,6 +319,7 @@ class AnimaleseSynth {
 }
 
 // ---- UI Control with Animal Crossing Theme ----
+// ---- UI Control with Animal Crossing Theme ----
 window.addEventListener("DOMContentLoaded", () => {
   const synth = new AnimaleseSynth("animalese.wav");
   const previewBtn = document.getElementById("preview");
@@ -342,7 +343,175 @@ window.addEventListener("DOMContentLoaded", () => {
     "Brewster", "Rover", "Pascal", "Zipper", "Jingle", "Pavé"
   ];
 
+  // 角色管理器集成
+  if (typeof window.ACCharacterManager !== 'undefined') {
+    window.ACCharacterManager.init();
+    
+    // 初始显示角色 - 确保在页面加载完成后执行
+    setTimeout(() => {
+      const initialSeed = seedInput.value.trim() || generateRandomSeed();
+      console.log(`Initial seed: ${initialSeed}`);
+      seedInput.value = initialSeed; // 确保seed输入框有值
+      window.ACCharacterManager.updateCharacter(initialSeed);
+    }, 100); // 给一点延迟确保DOM完全加载
+
+    // 修改随机种子按钮的点击事件
+    randomSeedBtn.onclick = null; // 清除原有的onclick
+    
+    randomSeedBtn.addEventListener("click", () => {
+      const newSeed = generateRandomSeed();
+      console.log(`New random seed: ${newSeed}`);
+      seedInput.value = newSeed;
+      
+      // 更新角色显示
+      window.ACCharacterManager.updateCharacter(newSeed);
+      
+      // 触发实时预览
+      triggerLivePreview();
+      
+      // 动画反馈
+      randomSeedBtn.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        randomSeedBtn.style.transform = "scale(1)";
+      }, 150);
+    });
+
+    // 监听seed输入变化 - 添加防抖
+    let inputTimeout;
+    seedInput.addEventListener("input", () => {
+      clearTimeout(inputTimeout);
+      inputTimeout = setTimeout(() => {
+        const seed = seedInput.value.trim();
+        if (seed) {
+          console.log(`Seed input changed to: ${seed}`);
+          window.ACCharacterManager.updateCharacter(seed);
+        }
+      }, 300); // 300ms 防抖
+    });
+
+    // 监听音调滑块，标记用户是否手动修改
+    pitchSlider.addEventListener("input", () => {
+      pitchSlider.setAttribute('data-user-modified', 'true');
+    });
+
+    // 修改预览按钮事件，添加说话动画
+    previewBtn.addEventListener("click", async () => {
+      // 开始说话动画
+      window.ACCharacterManager.startSpeaking();
+      
+      previewBtn.disabled = true;
+      previewBtn.innerHTML = '<span>🎵</span> Creating Voice...';
+      
+      try {
+        const seedVal = seedInput.value.trim();
+        const pitchVal = parseInt(pitchSlider.value, 10) || 0;
+        const blob = await synth.synthesize(txt.value, {
+          shorten: shortenChk.checked,
+          seed: seedVal,
+          pitch: pitchVal,
+        });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        
+        previewBtn.innerHTML = '<span>🔊</span> Playing...';
+        
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          previewBtn.disabled = false;
+          previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
+          // 停止说话动画
+          window.ACCharacterManager.stopSpeaking();
+        };
+        audio.onerror = () => {
+          console.error("Audio playback failed");
+          previewBtn.disabled = false;
+          previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
+          window.ACCharacterManager.stopSpeaking();
+        };
+        await audio.play();
+      } catch (err) {
+        console.error("Preview generation failed:", err);
+        previewBtn.disabled = false;
+        previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
+        window.ACCharacterManager.stopSpeaking();
+      }
+    });
+
+    // 修改实时预览函数，添加说话动画
+    window.triggerLivePreview = function() {
+      if (!livePreviewChk.checked) return;
+      
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      
+      clearTimeout(livePreviewTimeout);
+      livePreviewTimeout = setTimeout(async () => {
+        if (txt.value.trim()) {
+          try {
+            // 开始说话动画
+            window.ACCharacterManager.startSpeaking();
+            
+            const seedVal = seedInput.value.trim();
+            const pitchVal = parseInt(pitchSlider.value, 10) || 0;
+            const blob = await synth.synthesize(txt.value, {
+              shorten: shortenChk.checked,
+              seed: seedVal,
+              pitch: pitchVal,
+            });
+            const url = URL.createObjectURL(blob);
+            currentAudio = new Audio(url);
+            currentAudio.volume = 0.6;
+            currentAudio.onended = () => {
+              URL.revokeObjectURL(url);
+              currentAudio = null;
+              // 停止说话动画
+              window.ACCharacterManager.stopSpeaking();
+            };
+            currentAudio.play().catch(err => {
+              console.warn("Live preview play failed:", err);
+              window.ACCharacterManager.stopSpeaking();
+            });
+            
+            // 2秒后停止动画（以防音频很短）
+            setTimeout(() => {
+              window.ACCharacterManager.stopSpeaking();
+            }, 2000);
+          } catch (err) {
+            console.error("Live preview error:", err);
+            window.ACCharacterManager.stopSpeaking();
+          }
+        }
+      }, 600);
+    };
+
+    // future 点击角色显示问候语
+    const characterImage = document.getElementById('characterImage');
+    if (characterImage) {
+      characterImage.addEventListener('click', () => {
+        window.ACCharacterManager.showGreeting();
+      });
+    }
+
+  } else {
+    console.warn('Character Manager not loaded. Please include character-manager.js');
+  }
+  
   function generateRandomSeed() {
+    // 如果 character-manager 已加载，使用它的角色列表
+    if (window.ACCharacterManager && window.ACCharacterManager.getAllCharacters) {
+    // skip characters that are flagged secret / hidden
+    const pool = window.ACCharacterManager
+        .getAllCharacters()
+        .filter(c => !c.secret && !/^secret-/.test(c.id));   // fallback if you don’t add the flag
+
+    const randomCharacter = pool[Math.floor(Math.random() * pool.length)];
+    const randomNumber    = Math.floor(Math.random() * 9999);
+     return `${randomCharacter.name}-${randomNumber}`;
+   }
+    
+    // 备用方案：使用本地数组
     const randomName = characterNames[Math.floor(Math.random() * characterNames.length)];
     const randomNumber = Math.floor(Math.random() * 9999);
     return `${randomName}-${randomNumber}`;
@@ -411,24 +580,13 @@ window.addEventListener("DOMContentLoaded", () => {
           console.error("Live preview error:", err);
         }
       }
-    }, 600); // Slightly longer delay for more deliberate feel
+    }, 600);
   }
 
   // Event Listeners
   pitchSlider.addEventListener("input", () => {
     updatePitchDisplay();
     triggerLivePreview();
-  });
-
-  randomSeedBtn.addEventListener("click", () => {
-    seedInput.value = generateRandomSeed();
-    triggerLivePreview();
-    
-    // Add a little animation feedback
-    randomSeedBtn.style.transform = "scale(0.95)";
-    setTimeout(() => {
-      randomSeedBtn.style.transform = "scale(1)";
-    }, 150);
   });
 
   livePreviewChk.addEventListener("change", () => {
@@ -455,43 +613,6 @@ window.addEventListener("DOMContentLoaded", () => {
     console.error("Voice library error:", err);
     previewBtn.disabled = false;
     downloadBtn.disabled = false;
-  });
-
-  // Enhanced preview button with Animal Crossing feedback
-  previewBtn.addEventListener("click", async () => {
-    previewBtn.disabled = true;
-    previewBtn.innerHTML = '<span>🎵</span> Creating Voice...';
-    
-    try {
-      const seedVal = seedInput.value.trim();
-      const pitchVal = parseInt(pitchSlider.value, 10) || 0;
-      const blob = await synth.synthesize(txt.value, {
-        shorten: shortenChk.checked,
-        seed: seedVal,
-        pitch: pitchVal,
-      });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      
-      // Add visual feedback during playback
-      previewBtn.innerHTML = '<span>🔊</span> Playing...';
-      
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        previewBtn.disabled = false;
-        previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
-      };
-      audio.onerror = () => {
-        console.error("Audio playback failed");
-        previewBtn.disabled = false;
-        previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
-      };
-      await audio.play();
-    } catch (err) {
-      console.error("Preview generation failed:", err);
-      previewBtn.disabled = false;
-      previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
-    }
   });
 
   // Enhanced download button
@@ -546,5 +667,6 @@ window.addEventListener("DOMContentLoaded", () => {
       updatePitchDisplay();
       triggerLivePreview();
     }
+    seedInput.dispatchEvent(new Event("input", { bubbles: true }))
   });
 });

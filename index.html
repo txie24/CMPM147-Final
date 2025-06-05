@@ -9,83 +9,112 @@
 <body>
   <div class="background-overlay"></div>
   
-  <div class="container">
-    <div class="title-section">
-      <h1>🏝️ Animalese-Style Gibberish</h1>
-      <p class="subtitle">Create cute animal voices just like in Animal Crossing!</p>
-    </div>
-    
-    <div class="main-panel">
-      <div class="input-section">
-        <label for="text" class="ac-label">
-          <span class="label-icon">💬</span>
-          What would you like your villager to say?
-        </label>
-        <textarea id="text" rows="3" placeholder="Type your message here...">Hello! Welcome to my island!</textarea>
-      </div>
-
-      <div class="live-preview-panel" id="liveIndicator" style="display: none;">
-        <div class="preview-icon">🎵</div>
-        <span>Live Preview Active - Changes play automatically!</span>
-      </div>
-
-      <div class="controls-section">
-        <div class="control-panel">
-          <div class="control-header">
-            <span class="control-icon">🎲</span>
-            <span class="control-title">Character Seed</span>
-          </div>
-          <input type="text" id="seed-input" placeholder="Enter character seed..." />
-          <button class="ac-button secondary" id="randomSeed">
-            <span>🔄</span> New Character
-          </button>
-        </div>
-
-        <div class="control-panel">
-          <div class="control-header">
-            <span class="control-icon">🎵</span>
-            <span class="control-title">Voice Pitch</span>
-          </div>
-          <div class="pitch-control">
-            <input type="range" id="pitch-slider" class="ac-slider" min="-24" max="24" step="1" value="0" />
-            <div class="pitch-labels">
-              <span>🐻 Deep</span>
-              <span id="pitchDisplay">Normal</span>
-              <span>🐰 High</span>
+  <!-- 添加 app-container 包裹所有内容 -->
+  <div class="app-container">
+    <!-- 左侧角色面板 -->
+    <div class="character-panel">
+      <div class="character-display">
+        <div class="character-wrapper">
+          <div class="character-image" id="characterImage">
+            <img src="" alt="Character" id="characterImg" style="display: none;">
+            <div class="character-placeholder" id="characterPlaceholder">
+              <span class="character-emoji">🦝</span>
             </div>
           </div>
+          <div class="character-name-tag">
+            <span id="characterName">Tom Nook</span>
+          </div>
+        </div>
+        <div class="character-decoration">
+          <div class="sparkle sparkle-1">✨</div>
+          <div class="sparkle sparkle-2">⭐</div>
+          <div class="sparkle sparkle-3">✨</div>
         </div>
       </div>
+    </div>
 
-      <div class="options-section">
-        <div class="option-item">
-          <input type="checkbox" id="shorten" />
-          <label for="shorten" class="checkbox-label">
-            <span class="custom-checkbox"></span>
-            <span class="option-text">Quick Speech (abbreviate words)</span>
-          </label>
+    <!-- 主内容区域 -->
+    <div class="main-content">
+      <div class="container">
+        <div class="title-section">
+          <h1>🏝️ Animalese-Style Gibberish</h1>
+          <p class="subtitle">Create cute animal voices just like in Animal Crossing!</p>
         </div>
+        
+        <div class="main-panel">
+          <div class="input-section">
+            <label for="text" class="ac-label">
+              <span class="label-icon">💬</span>
+              What would you like your villager to say?
+            </label>
+            <textarea id="text" rows="3" placeholder="Type your message here...">Hello! Welcome to my island!</textarea>
+          </div>
 
-        <div class="option-item">
-          <input type="checkbox" id="livePreview" />
-          <label for="livePreview" class="checkbox-label">
-            <span class="custom-checkbox"></span>
-            <span class="option-text">Live Preview Mode</span>
-          </label>
+          <div class="live-preview-panel" id="liveIndicator" style="display: none;">
+            <div class="preview-icon">🎵</div>
+            <span>Live Preview Active - Changes play automatically!</span>
+          </div>
+
+          <div class="controls-section">
+            <div class="control-panel">
+              <div class="control-header">
+                <span class="control-icon">🎲</span>
+                <span class="control-title">Character Seed</span>
+              </div>
+              <input type="text" id="seed-input" placeholder="Enter character seed..." />
+              <button class="ac-button secondary" id="randomSeed">
+                <span>🔄</span> New Character
+              </button>
+            </div>
+
+            <div class="control-panel">
+              <div class="control-header">
+                <span class="control-icon">🎵</span>
+                <span class="control-title">Voice Pitch</span>
+              </div>
+              <div class="pitch-control">
+                <input type="range" id="pitch-slider" class="ac-slider" min="-24" max="24" step="1" value="0" />
+                <div class="pitch-labels">
+                  <span>🐻 Deep</span>
+                  <span id="pitchDisplay">Normal</span>
+                  <span>🐰 High</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="options-section">
+            <div class="option-item">
+              <input type="checkbox" id="shorten" />
+              <label for="shorten" class="checkbox-label">
+                <span class="custom-checkbox"></span>
+                <span class="option-text">Quick Speech (abbreviate words)</span>
+              </label>
+            </div>
+
+            <div class="option-item">
+              <input type="checkbox" id="livePreview" />
+              <label for="livePreview" class="checkbox-label">
+                <span class="custom-checkbox"></span>
+                <span class="option-text">Live Preview Mode</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="action-section">
+            <button class="ac-button primary" id="preview" disabled>
+              <span>🎵</span> Preview Voice
+            </button>
+            <button class="ac-button secondary" id="download" disabled>
+              <span>💾</span> Save Audio
+            </button>
+          </div>
         </div>
-      </div>
-
-      <div class="action-section">
-        <button class="ac-button primary" id="preview" disabled>
-          <span>🎵</span> Preview Voice
-        </button>
-        <button class="ac-button secondary" id="download" disabled>
-          <span>💾</span> Save Audio
-        </button>
       </div>
     </div>
   </div>
 
+  <script src="character-manager.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
