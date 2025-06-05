@@ -1,4 +1,4 @@
-// character-generator.js - PCG角色生成系统
+// character-generator.js
 
 class CharacterGenerator {
   constructor() {
