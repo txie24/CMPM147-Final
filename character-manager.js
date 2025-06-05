@@ -1,6 +1,7 @@
 // character-manager.js
 
 // 角色数据库 
+
 const characterDatabase = [
   {
     id: "tom-nook",
@@ -195,6 +196,128 @@ const characterDatabase = [
   }
 ];
 
+class GreetingGenerator {
+  constructor() {
+    // 定义不同性格的问候语模板
+    this.greetingTemplates = {
+      businessman: {
+        prefix: ["Yes, yes!", "Ah!", "Indeed!", "Well then!", "Hmm..."],
+        middle: ["Business is", "The market is", "Sales are", "Profits are", "Our stocks are"],
+        suffix: ["booming today!", "looking great!", "absolutely wonderful!", "better than ever!", "quite promising!"],
+        special: ["Time is money, yes yes!", "Another satisfied customer!", "Would you like to see our catalog?"]
+      },
+      peppy: {
+        prefix: ["Oh my gosh!", "Yay!", "Hi hi!", "Wow!", "OMG!"],
+        middle: ["Today is", "Everything is", "You look", "The weather is", "This moment is"],
+        suffix: ["super amazing!", "totally awesome!", "absolutely perfect!", "so wonderful!", "incredibly cute!"],
+        special: ["Let's have the best day ever!", "You make me so happy!", "Sunshine and rainbows!"]
+      },
+      cool: {
+        prefix: ["Hey.", "Yo.", "What's up.", "Cool.", "'Sup."],
+        middle: ["The vibe is", "Music is", "Life is", "Today feels", "Everything's"],
+        suffix: ["pretty chill.", "groovy, man.", "totally rad.", "just right.", "smooth as jazz."],
+        special: ["Keep it real.", "Stay cool, cat.", "Peace and music."]
+      },
+      scholarly: {
+        prefix: ["Fascinating!", "I say!", "Remarkable!", "Indeed!", "Hoo hoo!"],
+        middle: ["Did you know", "Research shows", "Studies indicate", "It's proven that", "Science tells us"],
+        suffix: ["this is quite intriguing?", "knowledge is power!", "learning never stops!", "wisdom comes with time.", "curiosity drives discovery!"],
+        special: ["The museum awaits your visit!", "So many specimens to study!", "Knowledge is the greatest treasure!"]
+      },
+      dreamy: {
+        prefix: ["*Sigh*", "Oh my...", "How lovely...", "Ahh...", "Mmm..."],
+        middle: ["The stars are", "Dreams are", "Wishes are", "The moon is", "Magic is"],
+        suffix: ["so beautiful tonight...", "dancing in the sky...", "waiting to come true...", "whispering secrets...", "all around us..."],
+        special: ["Make a wish upon a star...", "Follow your dreams...", "Believe in magic..."]
+      },
+      shy: {
+        prefix: ["Oh...", "Um...", "Well...", "I...", "..."],
+        middle: ["I hope", "Maybe", "I think", "Perhaps", "I wonder if"],
+        suffix: ["you're doing well...", "today is nice...", "we could talk...", "you like it here...", "everything's okay..."],
+        special: ["...nice to see you.", "Please come again...", "Thank you for visiting..."]
+      },
+      energetic: {
+        prefix: ["YEAH!", "WOOHOO!", "HEY HEY!", "YIPPEE!", "AWESOME!"],
+        middle: ["Let's", "We should", "Time to", "Ready to", "Gonna"],
+        suffix: ["GO GO GO!", "PARTY TIME!", "MAKE IT HAPPEN!", "ROCK AND ROLL!", "DO THIS THING!"],
+        special: ["MAXIMUM ENERGY!", "NEVER STOP MOVING!", "EXCITEMENT OVERLOAD!"]
+      },
+      sly: {
+        prefix: ["Heh heh...", "Well well...", "Interesting...", "Ah-ha...", "Hmm..."],
+        middle: ["I've got", "Want to see", "How about", "Care for", "Interested in"],
+        suffix: ["a special deal for you...", "something rare...", "an exclusive offer...", "a little secret...", "what I'm selling..."],
+        special: ["Trust me, cousin...", "This is totally legitimate...", "You won't find this anywhere else..."]
+      },
+      confused: {
+        prefix: ["Huh?", "Wait...", "Um...", "Where...?", "What...?"],
+        middle: ["I think I", "Did I", "Was I", "Should I", "Could I"],
+        suffix: ["forgot something?", "come from there?", "leave my ship?", "remember correctly?", "find my way?"],
+        special: ["Where am I again?", "Have we met before?", "I'm so lost..."]
+      },
+      philosophical: {
+        prefix: ["Maaan...", "Dude...", "Like...", "Whoa...", "Bro..."],
+        middle: ["Life is", "The ocean is", "Everything is", "We're all", "The universe is"],
+        suffix: ["totally connected, man.", "flowing like water.", "just vibes, dude.", "riding the same wave.", "one big mystery."],
+        special: ["Go with the flow...", "Deep thoughts, man...", "It's all about perspective..."]
+      }
+    };
+    
+    // 时间相关的修饰词
+    this.timeModifiers = {
+      morning: ["this morning", "bright and early", "at dawn"],
+      afternoon: ["this afternoon", "right now", "at this moment"],
+      evening: ["this evening", "as the sun sets", "tonight"],
+      night: ["tonight", "under the stars", "in the moonlight"]
+    };
+    
+    // 天气相关的修饰词
+    this.weatherModifiers = {
+      sunny: ["sunny", "bright", "warm"],
+      cloudy: ["cloudy", "overcast", "grey"],
+      rainy: ["rainy", "wet", "drizzly"]
+    };
+  }
+  
+  // 获取当前时间段
+  getTimeOfDay() {
+    const hour = new Date().getHours();
+    if (hour < 6) return 'night';
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    if (hour < 22) return 'evening';
+    return 'night';
+  }
+  
+  // 生成随机问候语
+  generateGreeting(character, seed = null) {
+    const personality = character.personality || 'friendly';
+    const templates = this.greetingTemplates[personality] || this.greetingTemplates.peppy;
+    
+    // 使用seed确保可重现性（可选）
+    const rng = seed ? mulberry32(xxhash32(seed.toString(), 0)) : Math.random;
+    const rand = typeof rng === 'function' ? rng : () => rng;
+    
+    // 30%概率使用特殊问候语
+    if (rand() < 0.3 && templates.special) {
+      return templates.special[Math.floor(rand() * templates.special.length)];
+    }
+    
+    // 否则组合生成问候语
+    const prefix = templates.prefix[Math.floor(rand() * templates.prefix.length)];
+    const middle = templates.middle[Math.floor(rand() * templates.middle.length)];
+    const suffix = templates.suffix[Math.floor(rand() * templates.suffix.length)];
+    
+    // 20%概率添加时间修饰
+    const timeOfDay = this.getTimeOfDay();
+    const timeModifier = rand() < 0.2 ? ` ${this.timeModifiers[timeOfDay][0]}` : '';
+    
+    return `${prefix} ${middle} ${suffix}${timeModifier}`;
+  }
+}
+
+// 创建问候语生成器实例
+const greetingGenerator = new GreetingGenerator();
+
 // 角色管理器类
 class CharacterManager {
   constructor() {
@@ -216,7 +339,8 @@ class CharacterManager {
     this.characterPlaceholder = document.getElementById('characterPlaceholder');
     this.characterName = document.getElementById('characterName');
     this.characterEmoji = document.querySelector('.character-emoji');
-    
+    this.characterWrapper = document.querySelector('.character-wrapper');
+
     if (!this.characterPanel) {
       console.warn('Character panel not found. Creating character display...');
       this.createCharacterDisplay();
@@ -564,26 +688,55 @@ displayCharacter(character) {
   }
 
   // 显示问候语
-  showGreeting() {
-    if (!this.currentCharacter) return;
-    
-    // 创建或更新语音气泡
-    let speechBubble = document.querySelector('.speech-bubble');
-    if (!speechBubble && this.characterWrapper) {
+  // 显示问候语
+showGreeting() {
+  if (!this.currentCharacter) return;
+  
+  // 生成随机问候语
+  const randomGreeting = greetingGenerator.generateGreeting(this.currentCharacter);
+  
+  // 创建或更新语音气泡
+  let speechBubble = document.querySelector('.speech-bubble');
+  if (!speechBubble) {
+    const characterWrapper = document.querySelector('.character-wrapper');
+    if (characterWrapper) {
       speechBubble = document.createElement('div');
       speechBubble.className = 'speech-bubble';
-      this.characterWrapper.insertBefore(speechBubble, this.characterImage);
-    }
-    
-    if (speechBubble) {
-      speechBubble.textContent = this.currentCharacter.greeting;
-      speechBubble.classList.add('show');
-      
-      setTimeout(() => {
-        speechBubble.classList.remove('show');
-      }, 3000);
+      characterWrapper.appendChild(speechBubble);
     }
   }
+  
+  if (speechBubble) {
+    speechBubble.textContent = randomGreeting;
+    requestAnimationFrame(() => {
+    const height = speechBubble.offsetHeight;
+    speechBubble.style.top = `-${height + 10}px`; // 10px = 尖角高度 + 缝隙
+  });
+    speechBubble.classList.add('show');
+    
+    // 添加一个小动画
+    const characterImage = document.getElementById('characterImage');
+    if (characterImage) {
+      characterImage.classList.add('talking');
+      setTimeout(() => {
+        characterImage.classList.remove('talking');
+      }, 500);
+    }
+    
+    // 基础 2 秒 + 每个字符 60 ms，上限 8 秒，下限 2 秒
+    const base    = 500;     // 建议回到 2s 基准
+    const perChar = 60;
+    const maxHold = 2000;     // 允许最长 8s（随意调整）
+    const holdTime = Math.min(
+      maxHold,
+      Math.max(base, randomGreeting.length * perChar)
+    );
+
+    setTimeout(() => {
+      speechBubble.classList.remove('show');
+    }, holdTime);
+  }
+}
 
   // 获取当前角色
   getCurrentCharacter() {
