@@ -396,7 +396,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // 修改预览按钮事件，添加说话动画
     previewBtn.addEventListener("click", async () => {
-      // 开始说话动画
+      // Start talking animation
       window.ACCharacterManager.startSpeaking();
       
       previewBtn.disabled = true;
@@ -419,7 +419,7 @@ window.addEventListener("DOMContentLoaded", () => {
           URL.revokeObjectURL(url);
           previewBtn.disabled = false;
           previewBtn.innerHTML = '<span>🎵</span> Preview Voice';
-          // 停止说话动画
+          // Stop talking animation
           window.ACCharacterManager.stopSpeaking();
         };
         audio.onerror = () => {

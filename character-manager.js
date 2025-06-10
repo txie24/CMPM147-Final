@@ -198,7 +198,7 @@ const characterDatabase = [
 
 class GreetingGenerator {
   constructor() {
-    // 定义不同性格的问候语模板
+    // Greeting templates that define different personalities
     this.greetingTemplates = {
       businessman: {
         prefix: ["Yes, yes!", "Ah!", "Indeed!", "Well then!", "Hmm..."],
@@ -293,16 +293,16 @@ class GreetingGenerator {
     const personality = character.personality || 'friendly';
     const templates = this.greetingTemplates[personality] || this.greetingTemplates.peppy;
     
-    // 使用seed确保可重现性（可选）
+    // Use seed to ensure reproducibility
     const rng = seed ? mulberry32(xxhash32(seed.toString(), 0)) : Math.random;
     const rand = typeof rng === 'function' ? rng : () => rng;
     
-    // 30%概率使用特殊问候语
+    // 30% probability of using a special greeting
     if (rand() < 0.3 && templates.special) {
       return templates.special[Math.floor(rand() * templates.special.length)];
     }
     
-    // 否则组合生成问候语
+    // Otherwise the combination generates a greeting
     const prefix = templates.prefix[Math.floor(rand() * templates.prefix.length)];
     const middle = templates.middle[Math.floor(rand() * templates.middle.length)];
     const suffix = templates.suffix[Math.floor(rand() * templates.suffix.length)];
@@ -390,14 +390,14 @@ class CharacterManager {
     this.characterEmoji = document.querySelector('.character-emoji');
   }
 
-// 根据seed获取角色
+// Getting roles based on seed
 getCharacterFromSeed(seed) {
   if (!seed) seed = "default";
   
   const seedStr = seed.toString();
   console.log(`Getting character for seed: ${seedStr}`);
   
-  // 特殊处理 Secret 角色
+  // Special Handling Secret Role
   if (seedStr === "K.K.-Slider-Secret" || 
       seedStr.toLowerCase() === "secret" || 
       seedStr.toLowerCase().includes("secret")) {
@@ -408,35 +408,35 @@ getCharacterFromSeed(seed) {
     }
   }
   
-  // 尝试从seed中提取角色名称（格式：角色名-数字）
+  // Try to extract the role name from seed (format: role-name-number)
   const parts = seedStr.split('-');
   
   if (parts.length >= 2) {
-    // 检查最后一部分是否为数字
+    // Check if the last part is a number
     const lastPart = parts[parts.length - 1];
     if (/^\d+$/.test(lastPart)) {
-      // 如果最后一部分是数字，则前面的部分是角色名
+      // If the last part is a number, the first part is the character name
       const characterNameParts = parts.slice(0, -1);
       const characterName = characterNameParts.join('-');
       
       console.log(`Extracted character name: ${characterName}`);
       
-      // 在数据库中查找角色
+      // Finding roles in the database
       for (const character of characterDatabase) {
-        // 方法1：直接匹配（忽略大小写）
+        // Direct match 
         if (character.name.toLowerCase() === characterName.toLowerCase()) {
           console.log(`Direct match found: ${character.name}`);
           return character;
         }
         
-        // 方法2：处理特殊格式（如 K.K. Slider）
+        // Handling special formats
         const possibleFormats = [
-          character.name,                                    // 原始名称
-          character.name.replace(/\s+/g, '-'),              // 空格变连字符
-          character.name.replace(/\s+/g, '_'),              // 空格变下划线
-          character.name.replace(/\./g, '.').replace(/\s+/g, '-'), // 保留点，空格变连字符
-          character.name.replace(/\./g, ''),                // 移除点
-          character.name.replace(/\./g, '').replace(/\s+/g, '-'), // 移除点，空格变连字符
+          character.name,                                    
+          character.name.replace(/\s+/g, '-'),              
+          character.name.replace(/\s+/g, '_'),             
+          character.name.replace(/\./g, '.').replace(/\s+/g, '-'), 
+          character.name.replace(/\./g, ''),               
+          character.name.replace(/\./g, '').replace(/\s+/g, '-'), 
         ];
         
         for (const format of possibleFormats) {
